@@ -7,13 +7,19 @@
 #   2. 把运行时缓存根 JEV_CACHE_ROOT 注入构建/运行环境，App 内 JevPaths 据此落盘。
 #
 # 用法（在 Mac 上）：
-#   ./build.sh sim       # 构建到模拟器并跑
-#   ./build.sh device    # 构建到真机（需连设备 + 签名）
-#   ./build.sh archive   # 归档出 ipa（需付费证书 / TestFlight）
+#   ./build.sh sim       # 构建到模拟器（不签名，CODE_SIGNING_ALLOWED=NO）
+#   ./build.sh device    # 构建到真机（需连设备 + 自动签名）
+#   ./build.sh archive   # 仅归档为 .xcarchive（不出 IPA）
+#   ./build.sh ipa       # 归档 + 导出 IPA（iOS 打包成品，需签名）
 #   ./build.sh paths     # 仅打印当前解析出的缓存路径，不构建
 #
 # 可用环境变量覆盖缓存根：
 #   JEV_CACHE_ROOT=/Volumes/D/jev-ios-cache ./build.sh sim
+#
+# iOS 打包（出 IPA）一步到位：
+#   JEV_TEAM_ID=你的团队ID ./build.sh ipa
+#   导出产物: $JEV_CACHE_ROOT/Build/IPA/JevJarvis.ipa
+#   （JEV_TEAM_ID 不传则用 project.yml 的默认团队，通常为上游团队，需自行替换）
 
 set -euo pipefail
 
@@ -82,6 +88,7 @@ case "$ACTION" in
       SYMROOT="$JEV_CACHE_ROOT/Build/Products" \
       OBJROOT="$JEV_CACHE_ROOT/Build/Intermediates" \
       SHARED_PRECOMPS_DIR="$JEV_CACHE_ROOT/Build/Precompiled" \
+      -allowProvisioningUpdates \
       build
     ;;
   archive)
@@ -95,10 +102,58 @@ case "$ACTION" in
       SYMROOT="$JEV_CACHE_ROOT/Build/Products" \
       OBJROOT="$JEV_CACHE_ROOT/Build/Intermediates" \
       SHARED_PRECOMPS_DIR="$JEV_CACHE_ROOT/Build/Precompiled" \
+      -allowProvisioningUpdates \
       archive
     ;;
+  ipa)
+    ARCHIVE="$JEV_CACHE_ROOT/Build/JevJarvis.xcarchive"
+    IPA_OUT="$JEV_CACHE_ROOT/Build/IPA"
+    # 归档（若尚未归档）
+    if [ ! -d "$ARCHIVE" ]; then
+      xcodebuild \
+        -project JevJarvis.xcodeproj \
+        -scheme JevJarvis \
+        -sdk iphoneos \
+        -destination 'generic/platform=iOS' \
+        -derivedDataPath "$DERIVED_DATA" \
+        -archivePath "$ARCHIVE" \
+        SYMROOT="$JEV_CACHE_ROOT/Build/Products" \
+        OBJROOT="$JEV_CACHE_ROOT/Build/Intermediates" \
+        SHARED_PRECOMPS_DIR="$JEV_CACHE_ROOT/Build/Precompiled" \
+        -allowProvisioningUpdates \
+        archive
+    fi
+    # 导出 IPA（自动生成 ExportOptions.plist，团队 ID 可经 JEV_TEAM_ID 覆盖）
+    TEAM_ID="${JEV_TEAM_ID:-75LZ93U5CF}"
+    if [ "$TEAM_ID" = "75LZ93U5CF" ]; then
+      echo "!! 注意: 未指定 JEV_TEAM_ID，将沿用 project.yml 默认团队 75LZ93U5CF (上游团队)。"
+      echo "   若非你本人开发者账号，导出会失败 —— 请先 export JEV_TEAM_ID=你的团队ID，"
+      echo "   或把 project.yml 的 DEVELOPMENT_TEAM 改成你的团队 ID。"
+    fi
+    EXPORT_PLIST="$(mktemp -t jev-export.XXXXXX.plist)"
+    cat > "$EXPORT_PLIST" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0">
+<dict>
+    <key>method</key><string>development</string>
+    <key>teamID</key><string>$TEAM_ID</string>
+    <key>signingStyle</key><string>automatic</string>
+    <key>stripSwiftSymbols</key><true/>
+    <key>compileBitcode</key><false/>
+</dict>
+</plist>
+PLIST
+    mkdir -p "$IPA_OUT"
+    xcodebuild -exportArchive \
+      -archivePath "$ARCHIVE" \
+      -exportPath "$IPA_OUT" \
+      -exportOptionsPlist "$EXPORT_PLIST" \
+      -allowProvisioningUpdates
+    rm -f "$EXPORT_PLIST"
+    echo "==> IPA 已导出: $IPA_OUT/JevJarvis.ipa"
+    ;;
   *)
-    echo "未知参数: $ACTION (可用: sim | device | archive | paths)"
+    echo "未知参数: $ACTION (可用: sim | device | archive | ipa | paths)"
     exit 1
     ;;
 esac

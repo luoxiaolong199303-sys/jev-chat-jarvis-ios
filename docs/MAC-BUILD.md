@@ -118,19 +118,28 @@ Xcode 首次真机运行会在 **Signing & Capabilities** 自动生成开发证�
 
 ---
 
-## 6. 出 IPA（归档 + 导出）
+## 6. 出 IPA（iOS 打包成品）
+
+**一条命令（推荐）**：`build.sh ipa` 先归档再自动导出 IPA，缓存全部在 D 盘：
 
 ```bash
-./build.sh archive       # 产出 .xcarchive 到 D 盘缓存目录
+JEV_TEAM_ID=你的团队ID ./build.sh ipa
+# 产物: /Volumes/D/jev-ios-cache/Build/IPA/JevJarvis.ipa
 ```
 
-再准备 `ExportOptions.plist`（按你的分发方式选 `development` / `ad-hoc` / `app-store`）：
+> ⚠️ **签名团队必须换成你自己的**：`project.yml` 里 `DEVELOPMENT_TEAM` 默认是上游团队的 `75LZ93U5CF`，直接用会导致导出失败。两种任选其一：
+> 1. 构建前 `export JEV_TEAM_ID=你的团队ID`（build.sh 据此生成 ExportOptions 并覆盖）；或
+> 2. 直接改 `project.yml` 的 `DEVELOPMENT_TEAM` 为你的团队 ID。
+> 团队 ID 在 Apple Developer 后台「Membership」页查看（形如 `ABCDE12345`）。
+
+**手动分步**（自定义分发方式 `development` / `ad-hoc` / `app-store`）：
 
 ```bash
+./build.sh archive       # 产出 .xcarchive 到 D 盘
 xcodebuild -exportArchive \
-  -archivePath /Volumes/D/jev-ios-cache/Build/Products/JevJarvis.xcarchive \
+  -archivePath /Volumes/D/jev-ios-cache/Build/JevJarvis.xcarchive \
   -exportPath /Volumes/D/jev-ios-cache/Build/IPA \
-  -exportOptionsPlist ExportOptions.plist
+  -exportOptionsPlist ExportOptions.plist   # 自建，method 按分发方式填
 ```
 
 > 真机 / App Group 说明：本项目 App 与键盘扩展共用 App Group `group.com.jevchat.jarvis`（用于共享配置与密钥）。**App Group 能力在免费账号下不可用**，需 $99 付费开发者账号才能在 Signing & Capabilities 中勾选并生效；否则键盘扩展无法读取 App 侧写入的共享数据。构建缓存与 DerivedData 不受影响，始终在 D 盘。
@@ -172,5 +181,6 @@ ls -d /Volumes/D/jev-ios-cache/runtime && echo "✅ 运行时缓存在 D 盘"
 | 模拟器编译+运行 | `./build.sh sim` |
 | 真机编译 | `./build.sh device` |
 | 归档出包 | `./build.sh archive` |
+| 一键出 IPA（iOS 打包成品） | `JEV_TEAM_ID=你的团队ID ./build.sh ipa` |
 | 打印当前缓存路径配置 | `./build.sh paths` |
 | 查看缓存目录占用 | `du -sh /Volumes/D/jev-ios-cache` |
