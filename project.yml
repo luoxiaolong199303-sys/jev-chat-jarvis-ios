@@ -1,6 +1,9 @@
 name: JevJarvis
 options:
   bundleIdPrefix: com.jevchat
+  # 派生数据(DerivedData) 写到 D 盘，避免占用 Mac 系统卷（等效 Windows C 盘）。
+  # 路径即 Windows D 盘在 macOS(Boot Camp 双系统)下的挂载点。
+  derivedDataPath: /Volumes/D/jev-ios-cache/DerivedData
   createIntermediateGroups: true
   deploymentTarget:
     iOS: "16.0"
@@ -15,6 +18,12 @@ settings:
     CURRENT_PROJECT_VERSION: "2"
     MARKETING_VERSION: "0.1.0"
     GENERATE_INFOPLIST_FILE: false
+    # —— 构建缓存统一落到 D 盘 ——
+    # 可用环境变量覆盖根：构建前 export JEV_CACHE_ROOT=/your/volume/jev-ios-cache
+    SYMROOT: /Volumes/D/jev-ios-cache/Build/Products
+    OBJROOT: /Volumes/D/jev-ios-cache/Build/Intermediates
+    DERIVED_DATA_PATH: /Volumes/D/jev-ios-cache/DerivedData
+    SHARED_PRECOMPS_DIR: /Volumes/D/jev-ios-cache/Build/Precompiled
 
 targets:
   JevJarvis:
