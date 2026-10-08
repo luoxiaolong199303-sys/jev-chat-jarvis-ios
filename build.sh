@@ -20,6 +20,12 @@
 #   JEV_TEAM_ID=你的团队ID ./build.sh ipa
 #   导出产物: $JEV_CACHE_ROOT/Build/IPA/JevJarvis.ipa
 #   （JEV_TEAM_ID 不传则用 project.yml 的默认团队，通常为上游团队，需自行替换）
+#
+# 免费账号模式（未付 $99，仅装自己设备测试）：
+#   JEV_FREE_ACCOUNT=1 JEV_TEAM_ID=你的团队ID ./build.sh ipa
+#   会自动去掉 App Group 能力（免费账号无法启用），主 App 可正常跑、可装自己手机；
+#   代价：主 App 与键盘扩展之间的共享配置不可用（键盘扩展读不到共享数据）。
+#   付 $99 升级后去掉 JEV_FREE_ACCOUNT 即可恢复 App Group 共享。
 
 set -euo pipefail
 
@@ -28,6 +34,21 @@ export JEV_CACHE_ROOT="${JEV_CACHE_ROOT:-/Volumes/D/jev-ios-cache}"
 DERIVED_DATA="$JEV_CACHE_ROOT/DerivedData"
 
 echo "==> 缓存根: $JEV_CACHE_ROOT"
+
+# —— Team ID（签名用，经环境变量覆盖；默认上游占位，需替换成你自己的）——
+export JEV_TEAM_ID="${JEV_TEAM_ID:-75LZ93U5CF}"
+
+# —— 免费账号模式：去掉 App Group 能力，使免费 Apple ID 也能装到自己设备 ——
+# 免费账号无法启用 App Group，不去掉会签名报 entitlement 不匹配。
+# 设为 1 即走免费路径（键盘与主 App 之间共享配置将不可用，但主 App 可正常跑）。
+if [ "${JEV_FREE_ACCOUNT:-0}" = "1" ]; then
+  export JEV_APP_ENTITLEMENTS="App/JevJarvis.free.entitlements"
+  export JEV_KB_ENTITLEMENTS="Keyboard/JevKeyboard.free.entitlements"
+  echo "==> 免费账号模式 (JEV_FREE_ACCOUNT=1): 不使用 App Group，键盘共享不可用"
+else
+  export JEV_APP_ENTITLEMENTS="App/JevJarvis.entitlements"
+  export JEV_KB_ENTITLEMENTS="Keyboard/JevKeyboard.entitlements"
+fi
 
 if [ ! -d "/Volumes/D" ]; then
   echo "!! 警告: 当前 Mac 未挂载 /Volumes/D (Windows D 盘)。"

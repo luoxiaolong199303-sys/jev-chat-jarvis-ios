@@ -31,9 +31,18 @@
 
 ## 1. 生成 Xcode 工程
 
-`project.yml` 已内置缓存路径重定向，直接生成即可：
+`project.yml` 已内置缓存路径重定向，且 Team ID / entitlements 改由环境变量驱动（`${ENV:JEV_TEAM_ID}` 等）。**推荐直接用 `build.sh`**，它会先注入这些环境变量再调 `xcodegen`：
 
 ```bash
+./build.sh sim          # 内部执行 xcodegen generate（已注入 JEV_* 环境变量）→ 产出 JevJarvis.xcodeproj
+```
+
+若坚持裸跑 `xcodegen`，需先导出环境变量，否则 `${ENV:...}` 解析为空会报错：
+
+```bash
+export JEV_TEAM_ID=75LZ93U5CF
+export JEV_APP_ENTITLEMENTS=App/JevJarvis.entitlements
+export JEV_KB_ENTITLEMENTS=Keyboard/JevKeyboard.entitlements
 xcodegen generate      # 读取 project.yml → 产出 JevJarvis.xcodeproj
 ```
 
@@ -123,14 +132,21 @@ Xcode 首次真机运行会在 **Signing & Capabilities** 自动生成开发证�
 **一条命令（推荐）**：`build.sh ipa` 先归档再自动导出 IPA，缓存全部在 D 盘：
 
 ```bash
+# 付费 $99 账号（App Group 键盘共享可用）：
 JEV_TEAM_ID=你的团队ID ./build.sh ipa
+
+# 免费 Apple ID（未付 $99，仅装自己设备测试）—— 自动去掉 App Group，主 App 可正常跑：
+JEV_FREE_ACCOUNT=1 JEV_TEAM_ID=你的团队ID ./build.sh ipa
+
 # 产物: /Volumes/D/jev-ios-cache/Build/IPA/JevJarvis.ipa
 ```
 
-> ⚠️ **签名团队必须换成你自己的**：`project.yml` 里 `DEVELOPMENT_TEAM` 默认是上游团队的 `75LZ93U5CF`，直接用会导致导出失败。两种任选其一：
-> 1. 构建前 `export JEV_TEAM_ID=你的团队ID`（build.sh 据此生成 ExportOptions 并覆盖）；或
-> 2. 直接改 `project.yml` 的 `DEVELOPMENT_TEAM` 为你的团队 ID。
-> 团队 ID 在 Apple Developer 后台「Membership」页查看（形如 `ABCDE12345`）。
+> ⚠️ **签名团队必须换成你自己的**：`project.yml` 里 `DEVELOPMENT_TEAM` 改为由 `JEV_TEAM_ID` 环境变量驱动（build.sh 默认 `75LZ93U5CF` 上游占位）。两种任选其一：
+> 1. 构建前 `export JEV_TEAM_ID=你的团队ID`（build.sh 据此生成 ExportOptions 并覆盖签名）；或
+> 2. 直接改 `project.yml` 的 `DEVELOPMENT_TEAM` 为你的团队 ID（并同步改 `build.sh` 默认值）。
+> 团队 ID 在 Apple Developer App（iPhone）→ 账户，或后台「Membership」页查看（形如 `ABCDE12345`）。
+>
+> 💡 **免费账号**：加 `JEV_FREE_ACCOUNT=1` 即走免费路径，build.sh 改用 `App/JevJarvis.free.entitlements` / `Keyboard/JevKeyboard.free.entitlements`（不含 App Group），免费 Apple ID 也能签名装到自己手机。代价：主 App 与键盘扩展的共享配置不可用（`Shared/JevModel.swift` 会自动回退到本地 `UserDefaults.standard`，不崩）；付 $99 升级后去掉该变量即可恢复 App Group 共享，工程代码无需再改。
 
 **手动分步**（自定义分发方式 `development` / `ad-hoc` / `app-store`）：
 
@@ -182,5 +198,6 @@ ls -d /Volumes/D/jev-ios-cache/runtime && echo "✅ 运行时缓存在 D 盘"
 | 真机编译 | `./build.sh device` |
 | 归档出包 | `./build.sh archive` |
 | 一键出 IPA（iOS 打包成品） | `JEV_TEAM_ID=你的团队ID ./build.sh ipa` |
+| 一键出 IPA（免费账号，无 App Group） | `JEV_FREE_ACCOUNT=1 JEV_TEAM_ID=你的团队ID ./build.sh ipa` |
 | 打印当前缓存路径配置 | `./build.sh paths` |
 | 查看缓存目录占用 | `du -sh /Volumes/D/jev-ios-cache` |
