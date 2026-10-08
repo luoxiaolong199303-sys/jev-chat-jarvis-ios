@@ -141,10 +141,14 @@ JEV_FREE_ACCOUNT=1 JEV_TEAM_ID=你的团队ID ./build.sh ipa
 # 产物: /Volumes/D/jev-ios-cache/Build/IPA/JevJarvis.ipa
 ```
 
-> ⚠️ **签名团队必须换成你自己的**：`project.yml` 里 `DEVELOPMENT_TEAM` 改为由 `JEV_TEAM_ID` 环境变量驱动（build.sh 默认 `75LZ93U5CF` 上游占位）。两种任选其一：
-> 1. 构建前 `export JEV_TEAM_ID=你的团队ID`（build.sh 据此生成 ExportOptions 并覆盖签名）；或
-> 2. 直接改 `project.yml` 的 `DEVELOPMENT_TEAM` 为你的团队 ID（并同步改 `build.sh` 默认值）。
-> 团队 ID 在 Apple Developer App（iPhone）→ 账户，或后台「Membership」页查看（形如 `ABCDE12345`）。
+> ⚠️ **签名团队必须是你自己的**：`project.yml` 的 `DEVELOPMENT_TEAM` 由 `JEV_TEAM_ID` 环境变量驱动。解析优先级：
+> 1. 显式 `export JEV_TEAM_ID=你的团队ID`；否则
+> 2. **build.sh 自动从本机 Apple Development 证书的 `OU` 字段读出团队 ID**（苹果规定证书 OU 即团队 ID，免手抄）；否则
+> 3. 回退上游占位 `75LZ93U5CF`。
+>
+> **如何拿到自己的 Team ID（免费账号）**：在本机 Xcode 中用 Apple ID 登录 → `Xcode ▸ Settings ▸ Accounts` 选中你的 Apple ID，右侧即显示 10 位 **Team ID**（你的账号会标为 “(Personal Team)”）。也可在 Mac Safari 登录 developer.apple.com ▸ Membership 查看。
+>
+> ❗ **注意别搞错**：iPhone「Apple Developer」App 里显示的 10 位「**注册 ID**」**不是**签名用的团队 ID（那是报名/账户注册标识）。真正的签名团队 ID 请以上面 Xcode 为准。免费账号**无需**在 App 内点「$98.99/年 订阅」。
 >
 > 💡 **免费账号**：加 `JEV_FREE_ACCOUNT=1` 即走免费路径，build.sh 改用 `App/JevJarvis.free.entitlements` / `Keyboard/JevKeyboard.free.entitlements`（不含 App Group），免费 Apple ID 也能签名装到自己手机。代价：主 App 与键盘扩展的共享配置不可用（`Shared/JevModel.swift` 会自动回退到本地 `UserDefaults.standard`，不崩）；付 $99 升级后去掉该变量即可恢复 App Group 共享，工程代码无需再改。
 

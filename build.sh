@@ -35,8 +35,23 @@ DERIVED_DATA="$JEV_CACHE_ROOT/DerivedData"
 
 echo "==> 缓存根: $JEV_CACHE_ROOT"
 
-# —— Team ID（签名用，经环境变量覆盖；默认上游占位，需替换成你自己的）——
-export JEV_TEAM_ID="${JEV_TEAM_ID:-75LZ93U5CF}"
+# —— Team ID（签名用）——
+# 优先级：环境变量 JEV_TEAM_ID > 本机 Apple Development 证书 OU 自动识别 > 上游占位 75LZ93U5CF。
+# 苹果规定：证书 Subject 的 OU(Organizational Unit) 字段即团队 ID（Team ID），故可直接从本机证书读出，
+# 免去手抄。免费账号只要你已用 Apple ID 登录过 Xcode 并签过一次名，本机就会有 Apple Development 证书。
+if [ -z "${JEV_TEAM_ID:-}" ]; then
+  JEV_TEAM_ID="$(security find-certificate -a -c "Apple Development" -p 2>/dev/null \
+    | openssl x509 -noout -subject 2>/dev/null \
+    | sed -n 's/.*OU *= *\([A-Za-z0-9]\{10\}\).*/\1/p' | head -n 1 || true)"
+fi
+if [ -z "${JEV_TEAM_ID:-}" ]; then
+  JEV_TEAM_ID="75LZ93U5CF"
+  echo "!! 未能自动识别团队 ID，暂用上游占位 75LZ93U5CF。"
+  echo "   请先在本机 Xcode 用你的 Apple ID 登录并完成一次签名，或显式 export JEV_TEAM_ID=你的团队ID。"
+else
+  echo "==> 团队 ID: $JEV_TEAM_ID"
+fi
+export JEV_TEAM_ID
 
 # —— 免费账号模式：去掉 App Group 能力，使免费 Apple ID 也能装到自己设备 ——
 # 免费账号无法启用 App Group，不去掉会签名报 entitlement 不匹配。
@@ -144,12 +159,11 @@ case "$ACTION" in
         -allowProvisioningUpdates \
         archive
     fi
-    # 导出 IPA（自动生成 ExportOptions.plist，团队 ID 可经 JEV_TEAM_ID 覆盖）
-    TEAM_ID="${JEV_TEAM_ID:-75LZ93U5CF}"
+    # 导出 IPA（自动生成 ExportOptions.plist，团队 ID 用前面解析出的 JEV_TEAM_ID）
+    TEAM_ID="$JEV_TEAM_ID"
     if [ "$TEAM_ID" = "75LZ93U5CF" ]; then
-      echo "!! 注意: 未指定 JEV_TEAM_ID，将沿用 project.yml 默认团队 75LZ93U5CF (上游团队)。"
-      echo "   若非你本人开发者账号，导出会失败 —— 请先 export JEV_TEAM_ID=你的团队ID，"
-      echo "   或把 project.yml 的 DEVELOPMENT_TEAM 改成你的团队 ID。"
+      echo "!! 注意: 团队 ID 仍为上游占位 75LZ93U5CF（未指定 JEV_TEAM_ID 且未在本机证书中识别到）。"
+      echo "   请在本机 Xcode 用你的 Apple ID 登录并完成一次签名，或 export JEV_TEAM_ID=你的团队ID。"
     fi
     EXPORT_PLIST="$(mktemp -t jev-export.XXXXXX.plist)"
     cat > "$EXPORT_PLIST" <<PLIST
